@@ -1,5 +1,3 @@
-setwd("C:/Users/roche/Classes/CS 424/Project 3 Big Yellow Taxi/BigYellowTaxi")
-
 # import libraries
 library(shiny)
 library(shinydashboard)
@@ -19,8 +17,8 @@ data_company <- do.call(rbind, data_company)
 
 data_community <- lapply("CommAreas.tsv", read.delim)
 data_community <- do.call(rbind, data_community)
-
-data_taxi <- lapply(list.files(pattern="*.tsv")[3:6], read.delim)
+# list.files(pattern="*.tsv")[3:6]
+data_taxi <- lapply("Taxi_Trips_2019_Clean_Sample.tsv", read.delim)
 data_taxi <- do.call(rbind, data_taxi)
 
 # format data
@@ -33,12 +31,12 @@ data_taxi$`Dropoff.Community.Area` <- as.factor(data_taxi$`Dropoff.Community.Are
 data_company$id <- as.character(data_company$id)
 
 # Create the menu items to select the different years and the different stations
-views<- c("Date", "Time", "Day", "Month", "Mileage", "Trip Time")
-mapViews <- c('Default','Contrast','Geographic')
+views<- c("Date", "Hour", "Day", "Month", "Mileage", "Trip Time")
+# mapViews <- c('Default','Contrast','Geographic')
 
-mileageViews <- c('KM', 'miles')
+mileageUnit <- c('KM', 'miles')
 # * 1.609344
-timeViews <- c('24 hr', 'AM/PM')
+timeUnit <- c('24 hr', 'AM/PM')
 # format(strptime('23', "%H"), "%I %p") 
 company_names <- c(c("All"),sort(unique(data_company$companyName)))
 community <- c(c("All"),sort(data_community$community))
@@ -67,26 +65,30 @@ ui <- dashboardPage(skin = "black",
                                             selectInput("company", "Taxi Company", company_names, selected = "All"),
                                             tabsetPanel(type = "tabs",
                                                         tabPanel("Upper", box(width =12,fluidRow(
-                                                          checkboxInput('reorderMinMax2', 'Order min-max', value = FALSE),
-                                                          checkboxInput('reorderMaxMin2', 'Order max-min', value = FALSE),
-                                                          conditionalPanel(condition = "input.viewPanel1 != 'All Stations'",div(
-                                                            # selectInput("StationName1", "Station", station_names, selected = "UIC-Halsted"),
-                                                            # sliderInput("Year1","Year",value = 2021, min = 2001,max = 2021,sep="")
-                                                          )),
+                                                          selectInput("view1","View",views,selected = "Date"),
+                                                          radioButtons("mileageUnit1", "Mileage Unit", mileageUnit, selected = "miles"),
+                                                          # radioButtons("mileageUnit1", "Mileage Unit", mileageUnit, selected = "miles"),
+                                                          radioButtons("timeUnit1", "Time Unit", timeUnit, selected = "24 hr"),
+                                                          checkboxInput('reorderMinMax1', 'Order min-max', value = FALSE),
+                                                          checkboxInput('reorderMaxMin1', 'Order max-min', value = FALSE),
+                                                          # conditionalPanel(condition = "input.viewPanel1 != 'All Stations'",div(
+                                                          #   # selectInput("StationName1", "Station", station_names, selected = "UIC-Halsted"),
+                                                          #   # sliderInput("Year1","Year",value = 2021, min = 2001,max = 2021,sep="")
+                                                          # )),
                                                           
                                                         ))),
                                                         tabPanel("Lower", box(width =12,fluidRow(
                                                           checkboxInput('reorderMinMax2', 'Order min-max', value = FALSE),
                                                           checkboxInput('reorderMaxMin2', 'Order max-min', value = FALSE),
-                                                          conditionalPanel(condition = "input.viewPanel2 != 'All Stations'",div(
-                                                            # selectInput("StationName2", "Station", station_names, selected = "O'Hare Airport"),
-                                                            
-                                                          )),
-                                                          conditionalPanel(condition = "input.viewPanel2 == 'All Stations'",div(
-                                                            # dateInput("date2", label = h3("Date"), value = "2021-08-23", min = min(CTA_daily$date), max=max(CTA_daily$date), format = 'D-yyyy-mm-dd'),
-                                                            
-                                                            
-                                                          ))
+                                                          # conditionalPanel(condition = "input.viewPanel2 != 'All Stations'",div(
+                                                          #   # selectInput("StationName2", "Station", station_names, selected = "O'Hare Airport"),
+                                                          #   
+                                                          # )),
+                                                          # conditionalPanel(condition = "input.viewPanel2 == 'All Stations'",div(
+                                                          #   # dateInput("date2", label = h3("Date"), value = "2021-08-23", min = min(CTA_daily$date), max=max(CTA_daily$date), format = 'D-yyyy-mm-dd'),
+                                                          #   
+                                                          #   
+                                                          # ))
                                                         )))
                                             )))
                                     ),
@@ -102,34 +104,27 @@ ui <- dashboardPage(skin = "black",
                                                               
                                                               column(12,h2(textOutput("Tab1"))),
                                                               column(12,
-                                                                     conditionalPanel(condition = "input.viewPanel1 == 'All Stations'",
-                                                                                      div(
-                                                                                        h3("All Stations"),
-                                                                                        fluidRow(
-                                                                                          column(2,
-                                                                                                 fluidRow(
-                                                                                                   
-                                                                                                   box(title = "Map", solidHeader = TRUE, status = "primary", width = 12,
-                                                                                                       leafletOutput("leafStations1", height = 500)
-                                                                                                   )
-                                                                                                 )),
-                                                                                          column(8,
-                                                                                                 fluidRow(
-                                                                                                   box( title = textOutput('boxHistStationTitle1'), solidHeader = TRUE, status = "primary", width = 12,
-                                                                                                        plotOutput("histStations1", height = 500)
-                                                                                                   )
-                                                                                                 )
-                                                                                          ),
-                                                                                          
-                                                                                          column(2,
-                                                                                                 fluidRow(
-                                                                                                   box(title = textOutput('boxTabStationTitle1'), solidHeader = TRUE, status = "primary", width = 12,
-                                                                                                       dataTableOutput("tabStations1", height = 500)
-                                                                                                   )
-                                                                                                   
-                                                                                                 )),
-                                                                                        ))
-                                                                     )),
+                                                                     
+                                                                        div(
+                                                                          h3("All Stations"),
+                                                                          fluidRow(
+                                                                            column(10,
+                                                                                   fluidRow(
+                                                                                     box( title = textOutput('boxHistTitle1'), solidHeader = TRUE, status = "primary", width = 12,
+                                                                                          plotOutput("histData1", height = 500)
+                                                                                     )
+                                                                                   )
+                                                                            ),
+                                                                            
+                                                                            column(2,
+                                                                                   fluidRow(
+                                                                                     box(title = textOutput('boxTabTitle1'), solidHeader = TRUE, status = "primary", width = 12,
+                                                                                         DT::dataTableOutput("tabData1", height = 500)
+                                                                                     )
+                                                                                     
+                                                                                   )),
+                                                                          ))
+                                                                     ),
                                                    
                                                               
                                                             ))),
@@ -144,28 +139,28 @@ ui <- dashboardPage(skin = "black",
                                                                                       div(
                                                                                         h3("All Stations"),
                                                                                         fluidRow(
-                                                                                          column(2,
-                                                                                                 fluidRow(
-                                                                                                   
-                                                                                                   box(title = "Map", solidHeader = TRUE, status = "primary", width = 12,
-                                                                                                       leafletOutput("leafStations2", height = 500)
-                                                                                                   )
-                                                                                                 )),
-                                                                                          column(8,
-                                                                                                 fluidRow(
-                                                                                                   box( title = textOutput('boxHistStationTitle2'), solidHeader = TRUE, status = "primary", width = 12,
-                                                                                                        plotOutput("histStations2", height = 500)
-                                                                                                   )
-                                                                                                 )
-                                                                                          ),
-                                                                                          
-                                                                                          column(2,
-                                                                                                 fluidRow(
-                                                                                                   box(title = textOutput('boxTabStationTitle2'), solidHeader = TRUE, status = "primary", width = 12,
-                                                                                                       dataTableOutput("tabStations2", height = 500)
-                                                                                                   )
-                                                                                                   
-                                                                                                 )),
+                                                                                          # column(2,
+                                                                                          #        fluidRow(
+                                                                                          #          
+                                                                                          #          box(title = "Map", solidHeader = TRUE, status = "primary", width = 12,
+                                                                                          #              leafletOutput("leafStations2", height = 500)
+                                                                                          #          )
+                                                                                          #        )),
+                                                                                          # column(8,
+                                                                                          #        fluidRow(
+                                                                                          #          box( title = textOutput('boxHistStationTitle2'), solidHeader = TRUE, status = "primary", width = 12,
+                                                                                          #               plotOutput("histStations2", height = 500)
+                                                                                          #          )
+                                                                                          #        )
+                                                                                          # ),
+                                                                                          # 
+                                                                                          # column(2,
+                                                                                          #        fluidRow(
+                                                                                          #          box(title = textOutput('boxTabStationTitle2'), solidHeader = TRUE, status = "primary", width = 12,
+                                                                                          #              dataTableOutput("tabStations2", height = 500)
+                                                                                          #          )
+                                                                                          #          
+                                                                                          #        )),
                                                                                         ))
                                                                      )),
                                                               
@@ -224,9 +219,9 @@ server <- function(input, output,session) {
   #   else{paste(input$StationName2,' ', input$Year2) }
   # })
   # 
-  # output$boxHistStationTitle1 <- renderText({ifelse(!input$compareDate1,"Entries For Each Stations", "Entries Difference For Each Stations")})
+  output$boxHistTitle1 <- renderText("Number of Rides")
   # output$boxHistStationTitle2 <- renderText({ifelse(!input$compareDate2,"Entries For Each Stations", "Entries Difference For Each Stations")})
-  # output$boxTabStationTitle1 <- renderText({ifelse(!input$compareDate1,"Entries For Each Stations as Table", "Entries Difference For Each Stations as Table")})
+  output$boxTabTitle1 <- renderText("Number of Rides as Table")
   # output$boxTabStationTitle2 <- renderText({ifelse(!input$compareDate2,"Entries For Each Stations as Table", "Entries Difference For Each Stations as Table")})
   # 
   observeEvent(input$aboutTab, {
@@ -557,19 +552,80 @@ server <- function(input, output,session) {
   # })
   # 
   # # generate data for window 1
-  # allStationDateReactive1 <- reactive({
-  #   dataDate <- subset(CTA_daily, date == input$date1)
-  #   quantiles<- round(quantile(dataDate$rides, probs = seq(0, 1, 1/7)))
-  #   dataDate$quantiles <-factor(findInterval(dataDate$rides, quantiles[2:7]))
-  #   levels(dataDate$quantiles) <- c(paste('<=',quantiles[2]),
-  #                                   paste('(',quantiles[2],'-',quantiles[3],']'),
-  #                                   paste('(',quantiles[3],'-',quantiles[4],']'),
-  #                                   paste('(',quantiles[4],'-',quantiles[5],']'),
-  #                                   paste('(',quantiles[5],'-',quantiles[6],']'),
-  #                                   paste('(',quantiles[6],'-',quantiles[7],']'),
-  #                                   paste(quantiles[7],'<'))
-  #   dataDate
-  # })
+  allDataReactive1 <- reactive({
+    data <- data_taxi
+    if (input$view1 == "Date"){
+      dateTable<-table(data$StartDate)
+      data <- as.data.frame(dateTable)
+      colnames(data) <- c("date","rides")
+      
+    } else if (input$view1 == "Hour"){
+      
+      dateTable<-table(data$StartHour)
+      data <- as.data.frame(dateTable)
+      colnames(data) <- c("hour","rides")
+      if (input$timeUnit1 == "AM/PM"){
+        levels(data$hour)<-format(strptime(data$hour, "%H"), "%I %p")
+      }
+     
+    } else if (input$view1 == "Day"){
+      dateTable<-table(wday(data$StartDate, label = TRUE, abbr = FALSE))
+      data <- as.data.frame(dateTable)
+      colnames(data) <- c("day","rides")
+    } else if (input$view1 == "Month"){
+      dateTable<-table(month(data$StartDate, label = TRUE, abbr = FALSE))
+      data <- as.data.frame(dateTable)
+      colnames(data) <- c("month","rides")
+    } else if (input$view1 == "Mileage"){
+      
+      if (input$mileageUnit1 == "KM") {
+        data$`Trip.Miles` <- data$`Trip.Miles`* 1.609344
+      }
+      dateTable<-table(data$`Trip.Miles`)
+      data <- as.data.frame(dateTable)
+      colnames(data) <- c("mileage","rides")
+      data$mileage <- as.numeric(as.character(data$mileage))
+      
+      
+      quantiles<- round(quantile(data$mileage, probs = seq(0, 1, 1/7)))
+      data$quantiles <-factor(findInterval(data$mileage, quantiles[2:7]))
+      levels(data$quantiles) <- c(paste('<=',quantiles[2]),
+                                     paste('(',quantiles[2],'-',quantiles[3],']'),
+                                     paste('(',quantiles[3],'-',quantiles[4],']'),
+                                     paste('(',quantiles[4],'-',quantiles[5],']'),
+                                     paste('(',quantiles[5],'-',quantiles[6],']'),
+                                     paste('(',quantiles[6],'-',quantiles[7],']'),
+                                     paste(quantiles[7],'<'))
+      
+    } else if (input$view1 == "Trip Time"){
+      dateTable<-table(data$`Trip.Seconds`)
+      data <- as.data.frame(dateTable)
+      colnames(data) <- c("time","rides")
+      data$time <- as.numeric(as.character(data$time))
+      
+      
+      quantiles<- round(quantile(data$time, probs = seq(0, 1, 1/7)))
+      data$quantiles <-factor(findInterval(data$time, quantiles[2:7]))
+      levels(data$quantiles) <- c(paste('<=',quantiles[2]),
+                                       paste('(',quantiles[2],'-',quantiles[3],']'),
+                                       paste('(',quantiles[3],'-',quantiles[4],']'),
+                                       paste('(',quantiles[4],'-',quantiles[5],']'),
+                                       paste('(',quantiles[5],'-',quantiles[6],']'),
+                                       paste('(',quantiles[6],'-',quantiles[7],']'),
+                                       paste(quantiles[7],'<'))
+      
+    }
+    # quantiles<- round(quantile(data_taxi$rides, probs = seq(0, 1, 1/7)))
+    # data_taxi$quantiles <-factor(findInterval(data_taxi$rides, quantiles[2:7]))
+    # levels(data_taxi$quantiles) <- c(paste('<=',quantiles[2]),
+    #                                 paste('(',quantiles[2],'-',quantiles[3],']'),
+    #                                 paste('(',quantiles[3],'-',quantiles[4],']'),
+    #                                 paste('(',quantiles[4],'-',quantiles[5],']'),
+    #                                 paste('(',quantiles[5],'-',quantiles[6],']'),
+    #                                 paste('(',quantiles[6],'-',quantiles[7],']'),
+    #                                 paste(quantiles[7],'<'))
+    data
+  })
   # allStationCompareDateReactive1 <- reactive({
   #   dataDate1 <- subset(CTA_daily, date == input$date1)
   #   dataDate2 <- subset(CTA_daily, date == input$secondDate1)[,c("station_id","rides")]
@@ -670,54 +726,83 @@ server <- function(input, output,session) {
   # # 
   # 
   # # show a bar chart of entries on date1 at all Station
-  # output$histStations1 <- renderPlot({
-  #   allStationDate <- allStationDateReactive1()
-  #   if( input$compareDate1){ allStationDate <- allStationCompareDateReactive1()}
-  #   
-  #   if(input$compareDate1 & input$reorderMinMax1){
-  #     ggplot(allStationDate, aes(x=reorder(stationname,+rides), y=rides,fill=quantiles)) + 
-  #       labs(x="Station Name", y = "Rides", fill='Entries Difference') + 
-  #       geom_bar(stat="identity") + scale_y_continuous() +
-  #       theme(axis.text.x = element_text(angle = 45))+
-  #       scale_fill_brewer(palette = "RdYlBu",direction = -1)
-  #   }
-  #   
-  #   else if(input$compareDate1 & input$reorderMaxMin1){
-  #     ggplot(allStationDate, aes(x=reorder(stationname,-rides), y=rides,fill=quantiles)) + 
-  #       labs(x="Station Name", y = "Rides", fill='Entries Difference') + 
-  #       geom_bar(stat="identity") + scale_y_continuous() +
-  #       theme(axis.text.x = element_text(angle = 45))+
-  #       scale_fill_brewer(palette = "RdYlBu",direction = -1)
-  #   }
-  #   
-  #   else if(input$compareDate1){
-  #     ggplot(allStationDate, aes(x=stationname, y=rides,fill=quantiles)) + 
-  #       labs(x="Station Name", y = "Rides", fill='Entries Difference') + 
-  #       geom_bar(stat="identity") + scale_y_continuous() +
-  #       theme(axis.text.x = element_text(angle = 45))+
-  #       scale_fill_brewer(palette = "RdYlBu",direction = -1)
-  #   }
-  #   
-  #   else if ( input$reorderMinMax1){
-  #     ggplot(allStationDate, aes(x=reorder(stationname,+rides), y=rides)) + 
-  #       labs(x="Station Name", y = "Rides") + 
-  #       geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() +
-  #       theme(axis.text.x = element_text(angle = 45))
-  #   }
-  #   
-  #   else if ( input$reorderMaxMin1){
-  #     ggplot(allStationDate, aes(x=reorder(stationname,-rides), y=rides)) + 
-  #       labs(x="Station Name", y = "Rides") + 
-  #       geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() +
-  #       theme(axis.text.x = element_text(angle = 45))
-  #   }
-  #   else{
-  #     ggplot(allStationDate, aes(x=stationname, y=rides)) + 
-  #       labs(x="Station Name", y = "Rides") + 
-  #       geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() +
-  #       theme(axis.text.x = element_text(angle = 45))
-  #   }
-  # })
+  output$histData1 <- renderPlot({
+    allData <- allDataReactive1()
+    if (input$view1 == "Date"){
+      ggplot(allData, aes(x=date, y=rides)) +
+        labs(x="Dates", y = "Rides") +
+        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() +
+        theme(axis.text.x = element_text(angle = 45))
+
+    } else if (input$view1 == "Hour"){
+      ggplot(allData, aes(x=hour, y=rides)) +
+        labs(x="Hours", y = "Rides") +
+        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() 
+
+    } else if (input$view1 == "Day"){
+      ggplot(allData, aes(x=day, y=rides)) +
+        labs(x="Days", y = "Rides") +
+        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() 
+
+    } else if (input$view1 == "Month"){
+      ggplot(allData, aes(x=month, y=rides)) +
+        labs(x="Months", y = "Rides") +
+        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() 
+
+    } else if (input$view1 == "Mileage"){
+      ggplot(allData, aes(x=quantiles, y=rides)) +
+        labs(x="Mileage", y = "Rides") +
+        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous()
+
+    } else if (input$view1 == "Trip Time"){
+      ggplot(allData, aes(x=quantiles, y=rides)) +
+        labs(x="Trip Time", y = "Rides") +
+        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous()
+
+    }
+    
+    
+    # if(input$compareDate1 & input$reorderMinMax1){
+    #   ggplot(allStationDate, aes(x=reorder(stationname,+rides), y=rides,fill=quantiles)) +
+    #     labs(x="Station Name", y = "Rides", fill='Entries Difference') +
+    #     geom_bar(stat="identity") + scale_y_continuous() +
+    #     theme(axis.text.x = element_text(angle = 45))+
+    #     scale_fill_brewer(palette = "RdYlBu",direction = -1)
+    # }
+    # 
+    # else if(input$compareDate1 & input$reorderMaxMin1){
+    #   ggplot(allStationDate, aes(x=reorder(stationname,-rides), y=rides,fill=quantiles)) +
+    #     labs(x="Station Name", y = "Rides", fill='Entries Difference') +
+    #     geom_bar(stat="identity") + scale_y_continuous() +
+    #     theme(axis.text.x = element_text(angle = 45))+
+    #     scale_fill_brewer(palette = "RdYlBu",direction = -1)
+    # }
+    # 
+    # else if(input$compareDate1){
+    #   ggplot(allStationDate, aes(x=stationname, y=rides,fill=quantiles)) +
+    #     labs(x="Station Name", y = "Rides", fill='Entries Difference') +
+    #     geom_bar(stat="identity") + scale_y_continuous() +
+    #     theme(axis.text.x = element_text(angle = 45))+
+    #     scale_fill_brewer(palette = "RdYlBu",direction = -1)
+    # }
+    # 
+    # else if ( input$reorderMinMax1){
+    #   ggplot(allStationDate, aes(x=reorder(stationname,+rides), y=rides)) +
+    #     labs(x="Station Name", y = "Rides") +
+    #     geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() +
+    #     theme(axis.text.x = element_text(angle = 45))
+    # }
+    # 
+    # else if ( input$reorderMaxMin1){
+    #   ggplot(allStationDate, aes(x=reorder(stationname,-rides), y=rides)) +
+    #     labs(x="Station Name", y = "Rides") +
+    #     geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() +
+    #     theme(axis.text.x = element_text(angle = 45))
+    # }
+    # else{
+      
+    # }
+  })
   # 
   # # show a bar chart of entries per Year at StationName1
   # output$histYear1 <- renderPlot({
@@ -808,29 +893,91 @@ server <- function(input, output,session) {
   # 
   # 
   # # show a table of entries on date1 on all stations
-  # output$tabStations1 <- DT::renderDataTable(
-  #   if (input$compareDate1){
-  #     DT::datatable({
-  #       allStationDate <- allStationCompareDateReactive1()
-  #       date1<- allStationDate$rides_1
-  #       date2<- allStationDate$rides_2
-  #       rides_difference <- allStationDate$rides
-  #       Dates <- data.frame(stationname = allStationDate$stationname, "date1 rides"=date1, "date2 rides"=date2,"rides difference"=rides_difference)
-  #     },
-  #     options = list(searching = FALSE, pageLength = 10, lengthChange = FALSE, order = list(list(ifelse(input$reorderMinMax1 || input$reorderMaxMin1,3,0), ifelse(input$reorderMaxMin1,'desc','asc')))
-  #     ), rownames = FALSE
-  #     )
-  #   }
-  #   else {DT::datatable({
-  #     allStationDate <- allStationDateReactive1()
-  #     rides <- allStationDate$rides
-  #     Dates <- data.frame(stationname = allStationDate$stationname, rides=rides)
-  #   },
-  #   options = list(searching = FALSE, pageLength = 10, lengthChange = FALSE, order = list(list(ifelse(input$reorderMinMax1 || input$reorderMaxMin1,1,0), ifelse(input$reorderMaxMin1,'desc','asc')))
-  #   ), rownames = FALSE
-  #   )
-  #   }
-  # )
+  output$tabData1 <- DT::renderDataTable(
+    # if (input$compareDate1){
+    #   DT::datatable({
+    #     allStationDate <- allStationCompareDateReactive1()
+    #     date1<- allStationDate$rides_1
+    #     date2<- allStationDate$rides_2
+    #     rides_difference <- allStationDate$rides
+    #     Dates <- data.frame(stationname = allStationDate$stationname, "date1 rides"=date1, "date2 rides"=date2,"rides difference"=rides_difference)
+    #   },
+    #   options = list(searching = FALSE, pageLength = 10, lengthChange = FALSE, order = list(list(ifelse(input$reorderMinMax1 || input$reorderMaxMin1,3,0), ifelse(input$reorderMaxMin1,'desc','asc')))
+    #   ), rownames = FALSE
+    #   )
+    # }
+    # else {
+    if (input$view1 == "Date"){
+      DT::datatable({
+        allData <- allDataReactive1()
+        rides <- allData$rides
+        Dates <- data.frame(date = allData$date, rides=rides)
+      },
+      options = list(searching = FALSE, pageLength = 10, lengthChange = FALSE), rownames = FALSE
+      )
+    } else if (input$view1 == "Hour"){
+      
+      DT::datatable({
+        allData <- allDataReactive1()
+        rides <- allData$rides
+        Hours <- data.frame(hour = allData$hour, rides=rides)
+      },
+      options = list(searching = FALSE, pageLength = 10, lengthChange = FALSE), rownames = FALSE
+      )
+      
+    } else if (input$view1 == "Day"){
+      DT::datatable({
+        allData <- allDataReactive1()
+        rides <- allData$rides
+        Days <- data.frame(day = allData$day, rides=rides)
+      },
+      options = list(searching = FALSE, pageLength = 10, lengthChange = FALSE), rownames = FALSE
+      )
+    } else if (input$view1 == "Month"){
+      DT::datatable({
+        allData <- allDataReactive1()
+        rides <- allData$rides
+        Months <- data.frame(month = allData$month, rides=rides)
+      },
+      options = list(searching = FALSE, pageLength = 10, lengthChange = FALSE), rownames = FALSE
+      )
+      
+    } else if (input$view1 == "Mileage"){
+      DT::datatable({
+        allData <- allDataReactive1()
+        rides <- allData$rides
+        Mileage <- data.frame(mileage = allData$quantiles, rides=rides)
+      },
+      options = list(searching = FALSE, pageLength = 10, lengthChange = FALSE), rownames = FALSE
+      )
+      
+    } else if (input$view1 == "Trip Time"){
+      DT::datatable({
+        allData <- allDataReactive1()
+        rides <- allData$rides
+        Time <- data.frame(time = allData$quantiles, rides=rides)
+      },
+      options = list(searching = FALSE, pageLength = 10, lengthChange = FALSE), rownames = FALSE
+      )
+    } 
+   
+    # if (input$view1 == "Date"){
+    #   
+    # } else if (input$view1 == "Hour"){
+    #   
+    # } else if (input$view1 == "Day"){
+    #   
+    # } else if (input$view1 == "Month"){
+    #   
+    # } else if (input$view1 == "Mileage"){
+    #   
+    # } else if (input$view1 == "Trip Time"){
+    #   
+    # } 
+    
+    
+    # }
+  )
   # 
   # # show a table of entries per Year at StationName1
   # output$tabYear1 <- DT::renderDataTable(
