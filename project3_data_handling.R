@@ -3,7 +3,7 @@ dir <- getwd()
 library(lubridate)
 library(R.utils)
 library(readr)
-Taxi_Trips_2019 <- read_delim("Taxi_Trips_-_2019.tsv", 
+Taxi_Trips_2019 <- read_delim("Taxi_Trips_2019_cut.tsv", 
                               "\t", escape_double = FALSE, trim_ws = TRUE)
 
 Taxi_Trips_2019_cut <- Taxi_Trips_2019[,c(3,5,6,9,10,17)]
@@ -11,15 +11,16 @@ Taxi_Trips_2019_cut <- na.omit(Taxi_Trips_2019_cut)
 
 new_Taxi_Trips_2019 <- subset(Taxi_Trips_2019_cut, `Trip Seconds`>=60 & `Trip Seconds`<=1800 & `Trip Miles`>=0.5 & `Trip Miles`<=100)
 
-unique(new_Taxi_Trips_2019$Company)
-
+new_Taxi_Trips_2019$Company[new_Taxi_Trips_2019$Company == "American United Taxi Affiliation"] <- "American United"
+new_Taxi_Trips_2019$Company[new_Taxi_Trips_2019$Company == "Checker Taxi Affiliation"] <- "Checker Taxi"
+new_Taxi_Trips_2019$Company[new_Taxi_Trips_2019$Company == "Taxi Affiliation Service Yellow"] <- "Taxi Affiliation Services"
 
 new_Taxi_Trips_2019$`Trip Start Timestamp` <- parse_date_time(new_Taxi_Trips_2019$`Trip Start Timestamp`,
                                                             '%m/%d/%Y %I:%M:%S %p', exact = TRUE)
 new_Taxi_Trips_2019$`StartDate`<-date(new_Taxi_Trips_2019$`Trip Start Timestamp`)
 new_Taxi_Trips_2019$`StartHour`<-hour(new_Taxi_Trips_2019$`Trip Start Timestamp`)
-     
-
+new_Taxi_Trips_2019 <- subset(new_Taxi_Trips_2019,select= -c(`Trip Start Timestamp`))  
+length(unique(new_Taxi_Trips_2019$Company))
 
 companyList <- sort(unique(new_Taxi_Trips_2019$Company)) 
 
@@ -94,3 +95,6 @@ write.table(
   CommAreas, file=file.path(paste(dir,"/BigYellowTaxi/CommAreas.tsv",sep="")), quote=FALSE, sep='\t', row.names = FALSE
 )
 
+write_tsv(
+  new_Taxi_Trips_2019, file.path(paste(dir,"/",sep=""), "Taxi_Trips_2019_Clean.tsv")
+)
