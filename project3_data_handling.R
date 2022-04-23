@@ -1,4 +1,4 @@
-setwd("C:/Users/roche/Classes/CS 424/Project 3 Big Yellow Taxi")
+setwd("C:/Users/roche/Classes/CS 424/Project 3 Big Yellow Taxi/BigYellowTaxi")
 dir <- getwd()
 library(lubridate)
 library(R.utils)
@@ -43,7 +43,8 @@ companyList[1:23] <- c("N and W Cab Co","Omar Jada","Sbeih company",
                        "Tasha ride inc", "Luhak Corp")
 company$companyName <- companyList
 
-bin<-ceiling(nrow(new_Taxi_Trips_2019)/4)
+bin<-ceiling(nrow(new_Taxi_Trips_2019)/20)
+
 start <- 1
 end <- bin
 new_Taxi_Trips_2019_1 <- new_Taxi_Trips_2019[c(start:end),]
@@ -57,7 +58,23 @@ end <- bin*3
 new_Taxi_Trips_2019_3 <- new_Taxi_Trips_2019[c(start:end),]
 
 start <- end+1
-new_Taxi_Trips_2019_4 <- new_Taxi_Trips_2019[c(start:nrow(new_Taxi_Trips_2019)),]
+end <- bin*4
+new_Taxi_Trips_2019_4 <- new_Taxi_Trips_2019[c(start:end),]
+
+start <- end+1
+end <- bin*5
+new_Taxi_Trips_2019_5 <- new_Taxi_Trips_2019[c(start:end),]
+
+start <- end+1
+end <- bin*6
+new_Taxi_Trips_2019_6 <- new_Taxi_Trips_2019[c(start:end),]
+
+start <- end+1
+end <- bin*7
+new_Taxi_Trips_2019_7 <- new_Taxi_Trips_2019[c(start:end),]
+
+start <- end+1
+new_Taxi_Trips_2019_8 <- new_Taxi_Trips_2019[c(start:nrow(new_Taxi_Trips_2019)),]
 
 write_tsv(
   new_Taxi_Trips_2019_1, file.path(paste(dir,"/BigYellowTaxi/",sep=""), "Taxi_Trips_2019_Clean_1.tsv")
@@ -73,6 +90,22 @@ write_tsv(
 
 write_tsv(
   new_Taxi_Trips_2019_4, file.path(paste(dir,"/BigYellowTaxi/",sep=""), "Taxi_Trips_2019_Clean_4.tsv")
+)
+
+write_tsv(
+  new_Taxi_Trips_2019_5, file.path(paste(dir,"/BigYellowTaxi/",sep=""), "Taxi_Trips_2019_Clean_5.tsv")
+)
+
+write_tsv(
+  new_Taxi_Trips_2019_6, file.path(paste(dir,"/BigYellowTaxi/",sep=""), "Taxi_Trips_2019_Clean_6.tsv")
+)
+
+write_tsv(
+  new_Taxi_Trips_2019_7, file.path(paste(dir,"/BigYellowTaxi/",sep=""), "Taxi_Trips_2019_Clean_7.tsv")
+)
+
+write_tsv(
+  new_Taxi_Trips_2019_8, file.path(paste(dir,"/BigYellowTaxi/",sep=""), "Taxi_Trips_2019_Clean_8.tsv")
 )
 
 write.table(

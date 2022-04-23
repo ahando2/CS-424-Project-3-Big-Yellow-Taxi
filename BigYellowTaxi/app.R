@@ -5,10 +5,10 @@ library(ggplot2)
 library(DT)
 library(lubridate)
 library(scales)
-library(jpeg)
-library(grid)
 library(leaflet)
 library(RColorBrewer)
+library(data.table)
+library(plyr)
 
 # get all of the tsv files in the same directory
 geo_counties <- rgdal::readOGR("Boundaries - Community Areas (current).geojson") 
@@ -18,26 +18,22 @@ data_company <- do.call(rbind, data_company)
 data_community <- lapply("CommAreas.tsv", read.delim)
 data_community <- do.call(rbind, data_community)
 
-data_taxi <- lapply(c("Taxi_Trips_2019_Clean_1.tsv","Taxi_Trips_2019_Clean_2.tsv","Taxi_Trips_2019_Clean_3.tsv","Taxi_Trips_2019_Clean_4.tsv"), read.delim)
-data_taxi <- do.call(rbind, data_taxi)
+data_taxi <- lapply(list.files(pattern="^Taxi_Trips_2019_Clean_"), fread, sep="\t")
+data_taxi <- rbindlist( data_taxi)
 
 # format data
-data_taxi$StartDate <- ymd(data_taxi$StartDate)
 data_taxi$StartHour <- as.factor(data_taxi$StartHour)
 data_taxi$Company <- as.factor(data_taxi$Company)
-data_taxi$`Pickup.Community.Area` <- as.factor(data_taxi$`Pickup.Community.Area`)
-data_taxi$`Dropoff.Community.Area` <- as.factor(data_taxi$`Dropoff.Community.Area`)
+data_taxi$`Pickup Community Area` <- as.factor(data_taxi$`Pickup Community Area`)
+data_taxi$`Dropoff Community Area` <- as.factor(data_taxi$`Dropoff Community Area`)
 
 data_company$id <- as.character(data_company$id)
 
 # Create the menu items to select the different years and the different stations
 views<- c("Date", "Hour", "Day", "Month", "Mileage", "Trip Time")
-# mapViews <- c('Default','Contrast','Geographic')
 communityDir <- c("To","From")
 mileageUnit <- c('KM', 'miles')
-# * 1.609344
 timeUnit <- c('24 hr', 'AM/PM')
-# format(strptime('23', "%H"), "%I %p") 
 company_names <- c(c("All"),sort(unique(data_company$companyName)))
 community <- c(c("All"),sort(data_community$community))
 
@@ -176,9 +172,6 @@ server <- function(input, output,session) {
   # increase the default font size
   theme_set(theme_grey(base_size = 14)) 
   
-  output$boxHistTitle1 <- renderText("Number of Rides")
-  output$boxTabTitle1 <- renderText("Number of Rides as Table")
-
   observeEvent(input$aboutTab, {
     newtab <- switch(input$tabs, "dashboard" = "about","about" = "dashboard")
     updateTabItems(session, "tabs", newtab)
@@ -191,65 +184,52 @@ server <- function(input, output,session) {
   
   # generate data for window 1
   allDataReactive1 <- reactive({
-    data <- data_taxi
+    
+    data <- data.table(data_taxi)
     if (input$community != "All" && input$communityDir == "From"){
-      currComm <- data_community$area_id[which(input$community == data_community$community)]
-      data <- data[which(data$`Pickup.Community.Area` == currComm),]
+      data <- data.table(data[which(data$`Pickup Community Area` == data_community$area_id[which(input$community == data_community$community)]),])
     }
     
-    if (input$community != "All" && input$communityDir == "To"){
-      currComm <- data_community$area_id[which(input$community == data_community$community)]
-      data <- data[which(data$`Dropoff.Community.Area` == currComm),]
+    else if (input$community != "All" && input$communityDir == "To"){
+      data <- data.table(data[which(data$`Dropoff Community Area` == data_community$area_id[which(input$community == data_community$community)]),])
     }
-    
     if (input$company != "All" ){
-      currComp <- data_company$id[which(input$company == data_company$companyName)]
-      data <- data[which(data$Company == currComp),]
+      data <- data.table(data[which(data$Company == data_company$id[which(input$company == data_company$companyName)]),])
     }
     
     if ( length(data$StartHour) > 0){
       if (input$view1 == "Date"){
-        dateTable<-table(data$StartDate)
-        data <- as.data.frame(dateTable)
-       
+        data<-data[,list(rides = count(data$StartDate))]
         colnames(data) <- c("date","rides")
         
-        
-        
       } else if (input$view1 == "Hour"){
-        
-        dateTable<-table(data$StartHour)
-        data <- as.data.frame(dateTable)
+        data<-data[,list(rides = count(data$StartHour))]
         colnames(data) <- c("hour","rides")
         if (input$timeUnit1 == "AM/PM"){
+          data$hour <- as.factor(data$hour)
           levels(data$hour)<-format(strptime(data$hour, "%H"), "%I %p")
         }
         
       } else if (input$view1 == "Day"){
-        dateTable<-table(wday(data$StartDate, label = TRUE, abbr = FALSE))
-        data <- as.data.frame(dateTable)
+        data<-data[, list(rides=count(wday(data$StartDate)))]
         colnames(data) <- c("day","rides")
+        data$day <- lubridate::wday(data$day, label=TRUE, week_start=1)
       } else if (input$view1 == "Month"){
-        dateTable<-table(month(data$StartDate, label = TRUE, abbr = FALSE))
-        data <- as.data.frame(dateTable)
+        data<-data[, list(rides=count(month(data$StartDate)))]
         colnames(data) <- c("month","rides")
+        data$month<-lubridate::month(data$month, label = TRUE, abbr = FALSE)
       } else if (input$view1 == "Mileage"){
-        
         if (input$mileageUnit1 == "KM") {
-          data$`Trip.Miles` <- data$`Trip.Miles`* 1.609344
+          data$`Trip Miles` <- data$`Trip Miles`* 1.609344
         }
-        dateTable<-table(data$`Trip.Miles`)
-        data <- as.data.frame(dateTable)
+        data<-data[, list(rides=count(data$`Trip Miles`))]
         colnames(data) <- c("mileage","rides")
-        data$mileage <- as.numeric(as.character(data$mileage))
-        
-        
         uniqueLen <- length(unique(data$mileage))
         quant <- c()
-        if( uniqueLen <= 7) {
+        if( uniqueLen <= 20) {
           quant <-factor(data$mileage)
         } else {
-          quantiles<- round(quantile(data$mileage, probs = seq(0, 1, 1/7)))
+          quantiles<- round(quantile(data$mileage, probs = seq(0, 1, 1/20)),digits=2)
           quantiles <- unique(quantiles)[2:(length(unique(quantiles))-1)]
           quant <-factor(findInterval(data$mileage, quantiles))
           levelsQuant <-  c(paste('<=',quantiles[1]))
@@ -260,19 +240,19 @@ server <- function(input, output,session) {
           levels(quant) <-levelsQuant
         }
         data$quantiles <- quant
+        data<-data[, list(rides=count(data$quantiles))]
+        colnames(data) <- c("mileage","rides")
         
       } else if (input$view1 == "Trip Time"){
-        dateTable<-table(data$`Trip.Seconds`)
-        data <- as.data.frame(dateTable)
+        data<-data[, list(rides=count(data$`Trip Seconds`))]
         colnames(data) <- c("time","rides")
-        data$time <- as.numeric(as.character(data$time))
-        
+        data$time <- as.numeric(data$time)/60
         uniqueLen <- length(unique(data$time))
         quant <- c()
-        if( uniqueLen <= 7) {
+        if( uniqueLen <= 20) {
           quant <-factor(data$time)
         } else {
-          quantiles<- round(quantile(data$time, probs = seq(0, 1, 1/7)))
+          quantiles<- round(quantile(data$time, probs = seq(0, 1, 1/20)), digit=2)
           quantiles <- unique(quantiles)[2:(length(unique(quantiles))-1)]
           quant <-factor(findInterval(data$time, quantiles))
           levelsQuant <-  c(paste('<=',quantiles[1]))
@@ -283,6 +263,8 @@ server <- function(input, output,session) {
           levels(quant) <-levelsQuant
         }
         data$quantiles <- quant
+        data<-data[, list(rides=count(data$quantiles))]
+        colnames(data) <- c("time","rides")
         
       }
     }
@@ -292,65 +274,52 @@ server <- function(input, output,session) {
   
   # generate data for window 2
   allDataReactive2 <- reactive({
-    data <- data_taxi
+    
+    data <- data.table(data_taxi)
     if (input$community != "All" && input$communityDir == "From"){
-      currComm <- data_community$area_id[which(input$community == data_community$community)]
-      data <- data[which(data$`Pickup.Community.Area` == currComm),]
+      data <- data.table(data[which(data$`Pickup Community Area` == data_community$area_id[which(input$community == data_community$community)]),])
     }
     
-    if (input$community != "All" && input$communityDir == "To"){
-      currComm <- data_community$area_id[which(input$community == data_community$community)]
-      data <- data[which(data$`Dropoff.Community.Area` == currComm),]
+    else if (input$community != "All" && input$communityDir == "To"){
+      data <- data.table(data[which(data$`Dropoff Community Area` == data_community$area_id[which(input$community == data_community$community)]),])
     }
-    
     if (input$company != "All" ){
-      currComp <- data_company$id[which(input$company == data_company$companyName)]
-      data <- data[which(data$Company == currComp),]
+      data <- data.table(data[which(data$Company == data_company$id[which(input$company == data_company$companyName)]),])
     }
     
     if ( length(data$StartHour) > 0){
       if (input$view2 == "Date"){
-        dateTable<-table(data$StartDate)
-        data <- as.data.frame(dateTable)
-        
+        data<-data[,list(rides = count(data$StartDate))]
         colnames(data) <- c("date","rides")
         
-        
-        
       } else if (input$view2 == "Hour"){
-        
-        dateTable<-table(data$StartHour)
-        data <- as.data.frame(dateTable)
+        data<-data[,list(rides = count(data$StartHour))]
         colnames(data) <- c("hour","rides")
         if (input$timeUnit2 == "AM/PM"){
+          data$hour <- as.factor(data$hour)
           levels(data$hour)<-format(strptime(data$hour, "%H"), "%I %p")
         }
         
       } else if (input$view2 == "Day"){
-        dateTable<-table(wday(data$StartDate, label = TRUE, abbr = FALSE))
-        data <- as.data.frame(dateTable)
+        data<-data[, list(rides=count(wday(data$StartDate)))]
         colnames(data) <- c("day","rides")
+        data$day <- lubridate::wday(data$day, label=TRUE, week_start=1)
       } else if (input$view2 == "Month"){
-        dateTable<-table(month(data$StartDate, label = TRUE, abbr = FALSE))
-        data <- as.data.frame(dateTable)
+        data<-data[, list(rides=count(month(data$StartDate)))]
         colnames(data) <- c("month","rides")
+        data$month<-lubridate::month(data$month, label = TRUE, abbr = FALSE)
       } else if (input$view2 == "Mileage"){
-        
         if (input$mileageUnit2 == "KM") {
-          data$`Trip.Miles` <- data$`Trip.Miles`* 1.609344
+          data$`Trip Miles` <- data$`Trip Miles`* 1.609344
         }
-        dateTable<-table(data$`Trip.Miles`)
-        data <- as.data.frame(dateTable)
+        data<-data[, list(rides=count(data$`Trip Miles`))]
         colnames(data) <- c("mileage","rides")
-        data$mileage <- as.numeric(as.character(data$mileage))
-        
-        
         uniqueLen <- length(unique(data$mileage))
         quant <- c()
-        if( uniqueLen <= 7) {
+        if( uniqueLen <= 20) {
           quant <-factor(data$mileage)
         } else {
-          quantiles<- round(quantile(data$mileage, probs = seq(0, 1, 1/7)))
+          quantiles<- round(quantile(data$mileage, probs = seq(0, 1, 1/20)),digits=2)
           quantiles <- unique(quantiles)[2:(length(unique(quantiles))-1)]
           quant <-factor(findInterval(data$mileage, quantiles))
           levelsQuant <-  c(paste('<=',quantiles[1]))
@@ -361,19 +330,19 @@ server <- function(input, output,session) {
           levels(quant) <-levelsQuant
         }
         data$quantiles <- quant
+        data<-data[, list(rides=count(data$quantiles))]
+        colnames(data) <- c("mileage","rides")
         
       } else if (input$view2 == "Trip Time"){
-        dateTable<-table(data$`Trip.Seconds`)
-        data <- as.data.frame(dateTable)
+        data<-data[, list(rides=count(data$`Trip Seconds`))]
         colnames(data) <- c("time","rides")
-        data$time <- as.numeric(as.character(data$time))
-        
+        data$time <- as.numeric(data$time)/60
         uniqueLen <- length(unique(data$time))
         quant <- c()
-        if( uniqueLen <= 7) {
+        if( uniqueLen <= 20) {
           quant <-factor(data$time)
         } else {
-          quantiles<- round(quantile(data$time, probs = seq(0, 1, 1/7)))
+          quantiles<- round(quantile(data$time, probs = seq(0, 1, 1/20)), digit=2)
           quantiles <- unique(quantiles)[2:(length(unique(quantiles))-1)]
           quant <-factor(findInterval(data$time, quantiles))
           levelsQuant <-  c(paste('<=',quantiles[1]))
@@ -384,6 +353,8 @@ server <- function(input, output,session) {
           levels(quant) <-levelsQuant
         }
         data$quantiles <- quant
+        data<-data[, list(rides=count(data$quantiles))]
+        colnames(data) <- c("time","rides")
         
       }
     }
@@ -391,39 +362,31 @@ server <- function(input, output,session) {
   })
   
   allDataGeoReactive1 <- reactive({
-    data <- data_taxi
+    data <- data.table(data_taxi)
     if (input$company != "All" ){
-      currComp <- data_company$id[which(input$company == data_company$companyName)]
-      data <- data[which(data$Company == currComp),]
+      data <- data.table(data[which(data$Company == data_company$id[which(input$company == data_company$companyName)]),])
     }
     
-    if (input$community == "All" && input$communityDir == "From"){
-      dateTable<-table(data$`Pickup.Community.Area`)
-      data <- as.data.frame(dateTable)
-      colnames(data) <- c("community","rides")
-    }
-    else if (input$community == "All" && input$communityDir == "To"){
-      dateTable<-table(data$`Dropoff.Community.Area`)
-      data <- as.data.frame(dateTable)
-      colnames(data) <- c("community","rides")
-    }
-    else if (input$community != "All" && input$communityDir == "From"){
-      currComm <- data_community$area_id[which(input$community == data_community$community)]
-      data <- data[which(data$`Pickup.Community.Area` == currComm),]
-      dateTable<-table(data$`Dropoff.Community.Area`)
-      data <- as.data.frame(dateTable)
-      colnames(data) <- c("community","rides")
+    if (input$community != "All" && input$communityDir == "From"){
+      data <- data.table(data[which(data$`Pickup Community Area` == data_community$area_id[which(input$community == data_community$community)]),])
     }
     
     else if (input$community != "All" && input$communityDir == "To"){
-      currComm <- data_community$area_id[which(input$community == data_community$community)]
-      data <- data[which(data$`Dropoff.Community.Area` == currComm),]
-      dateTable<-table(data$`Pickup.Community.Area`)
-      data <- as.data.frame(dateTable)
-      colnames(data) <- c("community","rides")
+      data <- data.table(data[which(data$`Dropoff Community Area` == data_community$area_id[which(input$community == data_community$community)]),])
     }
     
-  
+    
+    if (input$communityDir == "From"){
+      data<-data[,list(rides = count(data$`Dropoff Community Area`))]
+      
+    }else if (input$communityDir == "To"){
+      data<-data[,list(rides = count(data$`Pickup Community Area`))]
+    }
+    
+    colnames(data) <- c("community","rides")
+    
+    
+    
     data
     
     
@@ -432,10 +395,13 @@ server <- function(input, output,session) {
   #
   # window 1
   #
-  output$tab1 <- renderText({paste("Rides per",input$view1,input$communityDir,input$community)})
+  output$tab1 <- renderText({paste("Rides per ",input$view1," ",ifelse(input$view1 == "Trip Time","in Minutes ",""),
+                                   ifelse(input$view1 == "Mileage",paste("in ",input$mileageUnit1," ",sep=""),""),
+                                   input$communityDir," ",input$community," ", sep = "")})
   # show a bar chart of entries 
   output$histData1 <- renderUI({
-    if(nrow(allDataReactive1()) == 0)
+    allData <- allDataReactive1()
+    if(nrow(allData) == 0)
       return("No data to show, please try other filter")
     
     plotOutput("histDataOut1", height = 500)
@@ -445,8 +411,7 @@ server <- function(input, output,session) {
     if (input$view1 == "Date"){
       ggplot(allData, aes(x=date, y=rides)) +
         labs(x="Dates", y = "Rides") +
-        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() +
-        theme(axis.text.x = element_text(angle = 90))
+        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous()
 
     } else if (input$view1 == "Hour"){
       ggplot(allData, aes(x=hour, y=rides)) +
@@ -464,13 +429,13 @@ server <- function(input, output,session) {
         geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() 
 
     } else if (input$view1 == "Mileage"){
-      ggplot(allData, aes(x=quantiles, y=rides)) +
-        labs(x="Mileage", y = "Rides") +
+      ggplot(allData, aes(x=mileage, y=rides)) +
+        labs(x=paste("Mileage in",input$mileageUnit1), y = "Rides") +
         geom_bar(stat="identity", fill="steelblue") + scale_y_continuous()
 
     } else if (input$view1 == "Trip Time"){
-      ggplot(allData, aes(x=quantiles, y=rides)) +
-        labs(x="Trip Time", y = "Rides") +
+      ggplot(allData, aes(x=time, y=rides)) +
+        labs(x="Trip Time in Minutes", y = "Rides") +
         geom_bar(stat="identity", fill="steelblue") + scale_y_continuous()
 
     }
@@ -542,7 +507,9 @@ server <- function(input, output,session) {
   #
   # window 2
   #
-  output$tab2 <- renderText({paste("Rides per",input$view2,input$communityDir,input$community)})
+  output$tab2 <- renderText({paste("Rides per ",input$view2," ",ifelse(input$view2 == "Trip Time","in Minutes ",""),
+                                   ifelse(input$view2 == "Mileage",paste("in ",input$mileageUnit2," ",sep=""),""),
+                                   input$communityDir," ",input$community," ", sep = "")})
   # show a bar chart of entries 
   output$histData2 <- renderUI({
     if(nrow(allDataReactive2()) == 0)
@@ -555,8 +522,7 @@ server <- function(input, output,session) {
     if (input$view2 == "Date"){
       ggplot(allData, aes(x=date, y=rides)) +
         labs(x="Dates", y = "Rides") +
-        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() +
-        theme(axis.text.x = element_text(angle = 90))
+        geom_bar(stat="identity", fill="steelblue") + scale_y_continuous()
       
     } else if (input$view2 == "Hour"){
       ggplot(allData, aes(x=hour, y=rides)) +
@@ -574,13 +540,13 @@ server <- function(input, output,session) {
         geom_bar(stat="identity", fill="steelblue") + scale_y_continuous() 
       
     } else if (input$view2 == "Mileage"){
-      ggplot(allData, aes(x=quantiles, y=rides)) +
-        labs(x="Mileage", y = "Rides") +
+      ggplot(allData, aes(x=mileage, y=rides)) +
+        labs(x=paste("Mileage in",input$mileageUnit2), y = "Rides") +
         geom_bar(stat="identity", fill="steelblue") + scale_y_continuous()
       
     } else if (input$view2 == "Trip Time"){
-      ggplot(allData, aes(x=quantiles, y=rides)) +
-        labs(x="Trip Time", y = "Rides") +
+      ggplot(allData, aes(x=time, y=rides)) +
+        labs(x="Trip Time in Minutes", y = "Rides") +
         geom_bar(stat="identity", fill="steelblue") + scale_y_continuous()
       
     }
