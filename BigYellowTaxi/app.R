@@ -626,10 +626,22 @@ server <- function(input, output,session) {
   })
   output$leafOutDir <- renderLeaflet({
     allData <- allDataGeoReactive1()
+    
+    zeroComm <- setdiff(data_community$area_id, allData$community)
+    data <- data.frame(matrix(ncol = 2, nrow = length(zeroComm)))
+    colnames(data)<-c("community", "rides")
+    if(length(zeroComm) > 0){
+      data$community <- zeroComm
+      data$rides <- 0
+    }
+    allData<-rbind(data, allData)
+
+    
     pal <- colorNumeric(
       palette = "YlGnBu",
-      domain = allData$rides
-    )
+      domain = allData$rides)
+
+    
 
     map <- leaflet(geo_counties)
     map <- addTiles(map = map)
@@ -649,11 +661,15 @@ server <- function(input, output,session) {
   
   output$leafOut <- renderLeaflet({
     allData <- allDataGeoReactive1()
-    pal <- colorNumeric(
-      palette = "YlGnBu",
-      domain = allData$rides
-    )
-
+    zeroComm <- setdiff(data_community$area_id, allData$community)
+    data <- data.frame(matrix(ncol = 2, nrow = length(zeroComm)))
+    colnames(data)<-c("community", "rides")
+    if(length(zeroComm) > 0){
+      data$community <- zeroComm
+      data$rides <- 0
+    }
+      
+    allData<-rbind(data, allData)
     
     map <- leaflet(geo_counties)
     map <- addTiles(map = map)

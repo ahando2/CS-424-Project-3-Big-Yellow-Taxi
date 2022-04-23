@@ -131,3 +131,4 @@ write.table(
 write_tsv(
   new_Taxi_Trips_2019, file.path(paste(dir,"/",sep=""), "Taxi_Trips_2019_Clean.tsv")
 )
+
